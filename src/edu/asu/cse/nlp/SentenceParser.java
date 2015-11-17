@@ -25,11 +25,17 @@ public class SentenceParser {
     List<Tree> adjList = new ArrayList<Tree>();
     List<Tree> nnList = new ArrayList<Tree>();
     List<Tree> nnsList = new ArrayList<Tree>();
+    List<Tree> vbdList = new ArrayList<Tree>();
+    
 
     
     
     
-    public List<Tree> getAdjList() {
+    public List<Tree> getVbdList() {
+		return vbdList;
+	}
+
+	public List<Tree> getAdjList() {
 		return adjList;
 	}
 
@@ -93,7 +99,7 @@ public class SentenceParser {
           if(subtree.label().value().equals("VB")){
         	  verbList.add(subtree.lastChild());
           }
-          if(subtree.label().value().equals("NNP") || subtree.label().value().equals("NN")){
+          if(subtree.label().value().equals("NNP")){
               nounList.add(subtree.lastChild());
           }
           if(subtree.label().value().equals("NN")){
@@ -113,12 +119,15 @@ public class SentenceParser {
           if(subtree.label().value().equals("NNS")){
               nnsList.add(subtree.lastChild());
           }
+          if(subtree.label().value().equals("VBD")){
+              vbdList.add(subtree.lastChild());
+          }
           
         }
-          System.out.println(verbList);
-          System.out.println(nounList);
-          System.out.println(whList);
-          System.out.println(nounPhrase);
+//          System.out.println(verbList);
+//          System.out.println(nounList);
+//          System.out.println(whList);
+//          System.out.println(nounPhrase);
     }
     
     

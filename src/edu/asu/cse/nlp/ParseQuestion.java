@@ -1,4 +1,4 @@
-package edu.asu.cse.nlp;
+	package edu.asu.cse.nlp;
 
 import java.io.IOException;
 import javax.servlet.ServletException;
@@ -6,6 +6,10 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.json.JSONException;
+
+import com.mashape.unirest.http.exceptions.UnirestException;
 
 /**
  * Servlet implementation class ParseQuestion
@@ -33,12 +37,23 @@ public class ParseQuestion extends HttpServlet {
 		String question = request.getParameter("question");
 		String subject = request.getParameter("subject");
 		
+		
+		
 		//System.out.println("dasdasdadas " + subject);
 		//System.out.println("ddsdadasdadas"+ question);
 		//String type = request.getParameter("type");
 		
 		POS_tagger tagger = new POS_tagger(subject,question);
-		String res = tagger.getResult();
+		String res = null;
+		try {
+			res = tagger.getResult();
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (UnirestException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		System.out.println("exepcted" +res);
 		//process these inputs
 		response.getWriter().write(res);
