@@ -74,6 +74,7 @@ public class POS_tagger {
 		URI_map.put("Berkman Center for Internet and Society", "Berkman_Center_for_Internet_&_Society");
 		URI_map.put("boll weevil", "Boll_weevil");
 		URI_map.put("space shuttles", "Space_Shuttle");
+		URI_map.put("quarks", "Quarks");
 	}
 
 
@@ -97,9 +98,10 @@ public class POS_tagger {
 		HashMap<String, Integer> dbpedia_tags = getDbpediaTags(tags);
 
 		String final_tag = rankTags(dbpedia_tags);
+		System.out.println("final tag" + final_tag);
 
 		int rank = dbpedia_tags.get(final_tag);
-		System.out.println("RANK =====" + rank);
+		//System.out.println("RANK =====" + rank);
 
 		String queryResult = null;
 
@@ -110,12 +112,12 @@ public class POS_tagger {
 				queryResult = getSparqlQuery(final_tag, url);
 				//System.out.println(queryResult);
 				if(queryResult.contains("dbpedia.org")){
-					
+
 					String[] ch = queryResult.split("/");
 					queryResult = ch[ch.length-1];
 				}
 				else{
-					
+
 					System.out.println("here");
 					String[] ch = queryResult.split("\\^");
 					queryResult = ch[0];
@@ -124,14 +126,14 @@ public class POS_tagger {
 			catch(Exception ex)
 			{
 				queryResult="Cannot find answer";
-			
+
 			}
 		}
-		//		else{
-		//			
-		//			parseAbstract();
-		//		}
-		//		
+		else{
+
+			queryResult = "The system cannot answer this now ! We are working on it :)";
+		}
+
 		return queryResult;
 	}
 
@@ -236,6 +238,7 @@ public class POS_tagger {
 		List<Tree> nnList = new ArrayList<Tree>();
 		List<Tree> nnsList = new ArrayList<Tree>();
 		List<Tree> vbdList = new ArrayList<Tree>();
+		List<Tree> whList = new ArrayList<Tree>();
 
 
 		vbnList = parser.getVbnList();
@@ -243,8 +246,24 @@ public class POS_tagger {
 		nnList = parser.getNnList();
 		nnsList = parser.getNnsList();
 		vbdList = parser.getVbdList();
+		whList = parser.getWhList();
+
 
 		List<String> lemma = new ArrayList<String>();
+
+		//dictionary for wh words
+
+		List<String> whenDict = new ArrayList<String>();
+		whenDict.add("date");
+		whenDict.add("year");
+		
+		List<String> whereDict = new ArrayList<String>();
+		whereDict.add("place");
+		whereDict.add("location");
+		whereDict.add("residence");
+		whereDict.add("hometown");
+
+		//System.out.println("verb list" + verbList);
 
 
 		for(Tree vbn : vbnList){
@@ -280,25 +299,6 @@ public class POS_tagger {
 
 		for(Tree vbn : vbdList){
 
-//			HttpResponse<JsonNode> response = Unirest.post("https://twinword-lemmatizer1.p.mashape.com/extract/")
-//					.header("X-Mashape-Key", "r2iAzEK2ilmshMy6isqkHL9j8UiJp1XMo3ojsn1IMggY2xD7DK")
-//					.header("Content-Type", "application/x-www-form-urlencoded")
-//					.header("Accept", "application/json")
-//					.field("text", vbn.toString())
-//					.asJson();
-//
-//			JSONObject obj = new JSONObject(response.getBody().toString());
-//			JSONObject res = new JSONObject(response.getBody().toString());
-//			res = (JSONObject)res.get("result_msg");
-//			String[] result = res.getNames(res);
-//			if(result[0] != "lemma not found"){
-//
-//				obj = (JSONObject)obj.get("lemma");
-//				String[] lemmas = obj.getNames(obj);
-//
-//				lemma.add(lemmas[0]);
-//			}
-			
 			Lemmatizer lemmaObject = new Lemmatizer();
 			List<String> lst = lemmaObject.lemmatize(vbn.toString());
 			lemma.add(lst.get(0));
@@ -307,6 +307,17 @@ public class POS_tagger {
 		System.out.println(lemma + "lemma ------------------------------");
 
 		List<String> related_terms = new ArrayList<String>();
+
+		//handling die
+
+		int flag = 0;
+
+		if(!verbList.isEmpty() && verbList.get(0).toString().toLowerCase().equals("die")){
+
+			related_terms.add("death");
+			flag = 1;
+		}
+
 
 		for(String lem : lemma){
 
@@ -321,18 +332,18 @@ public class POS_tagger {
 
 				for(int i=0; i<arr.length(); i++)
 					related_terms.add(arr.get(i).toString());
-				
+
 				HttpResponse<JsonNode> response_der = Unirest.get("https://wordsapiv1.p.mashape.com/words/"+lem+"/derivation").header("X-Mashape-Key", "jbww4coyOHmshYmdYYBixq9DtwsYp1PgetcjsnmKRdjNTLbMQ8")
 						.header("Content-Type", "application/x-www-form-urlencoded")
 						.header("Accept", "application/json").asJson();
-				
+
 				JSONObject obj_der = new JSONObject(response_der.getBody().toString());
 				//System.out.println(response_der.getBody());
 				JSONArray arr_der = (JSONArray)obj_der.get("derivation");
 
 				for(int i=0; i<arr_der.length(); i++)
 					related_terms.add(arr_der.get(i).toString());
-				
+
 
 			}
 
@@ -344,10 +355,49 @@ public class POS_tagger {
 
 		}
 
+
 		System.out.println(related_terms);
 
 
 		for(String tag :dbpedia_tags.keySet()){
+
+			//checking wh word
+
+			if(! whList.isEmpty()){
+				
+				//when 
+
+				if(whList.get(0).toString().toLowerCase().equals("when")){
+
+					if(flag == 1)
+						related_terms.remove("cause");
+
+
+					for(String word : whenDict){
+
+						if(tag.toLowerCase().contains(word.toLowerCase())){
+
+							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						}
+					}
+				}
+				
+				//where
+				
+				if(whList.get(0).toString().toLowerCase().equals("where")){
+
+
+					for(String word : whereDict){
+
+						if(tag.toLowerCase().contains(word.toLowerCase())){
+
+							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						}
+					}
+				}
+				
+				
+			}
 
 			//rank acc to vbn list
 
@@ -458,10 +508,10 @@ public class POS_tagger {
 
 		ResultSet results = qexec.execSelect();
 		QuerySolution soln = results.nextSolution();
-		
+
 		RDFNode l = soln.get("variable");
-//		Literal l = (Literal) soln.get("variable");
-//		System.out.println(l);
+		//		Literal l = (Literal) soln.get("variable");
+		//		System.out.println(l);
 		qexec.close() ;
 		return l.toString();
 
