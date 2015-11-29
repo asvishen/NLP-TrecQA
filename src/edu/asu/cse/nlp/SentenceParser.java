@@ -2,15 +2,22 @@ package edu.asu.cse.nlp;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import edu.stanford.nlp.ling.CoreLabel;
+import edu.stanford.nlp.ling.Sentence;
 import edu.stanford.nlp.parser.lexparser.LexicalizedParser;
 import edu.stanford.nlp.process.CoreLabelTokenFactory;
 import edu.stanford.nlp.process.PTBTokenizer;
 import edu.stanford.nlp.process.Tokenizer;
 import edu.stanford.nlp.process.TokenizerFactory;
+import edu.stanford.nlp.trees.GrammaticalStructure;
+import edu.stanford.nlp.trees.GrammaticalStructureFactory;
+import edu.stanford.nlp.trees.PennTreebankLanguagePack;
 import edu.stanford.nlp.trees.Tree;
+import edu.stanford.nlp.trees.TreebankLanguagePack;
+import edu.stanford.nlp.trees.TypedDependency;
 
 public class SentenceParser {
 	
@@ -26,11 +33,7 @@ public class SentenceParser {
     List<Tree> nnList = new ArrayList<Tree>();
     List<Tree> nnsList = new ArrayList<Tree>();
     List<Tree> vbdList = new ArrayList<Tree>();
-    
-
-    
-    
-    
+   
     public List<Tree> getVbdList() {
 		return vbdList;
 	}
@@ -129,7 +132,6 @@ public class SentenceParser {
 //          System.out.println(whList);
 //          System.out.println(nounPhrase);
     }
-    
     
    
 }

@@ -53,6 +53,9 @@ public class ParseQuestion extends HttpServlet {
 		} catch (UnirestException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		System.out.println("exepcted" +res);
 		//process these inputs

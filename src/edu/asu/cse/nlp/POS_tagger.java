@@ -65,7 +65,7 @@ public class POS_tagger {
 		URI_map.put("Nobel prize", "Nobel_Prize");
 		URI_map.put("Bashar Assad", "Bashar_al-Assad");
 		URI_map.put("Cassini space probe", "Cassini_Huygens");
-		URI_map.put("Conde Nast", "Cond__Nast");
+		URI_map.put("Conde Nast", "Conde_Nast");
 		URI_map.put("Eileen Marie Collins", "Eileen_Collins");
 		URI_map.put("Liberty Bell 7", "Mercury-Redstone_4");
 		URI_map.put("International Finance Corporation (IFC)", "International_Finance_Corporation");
@@ -89,50 +89,78 @@ public class POS_tagger {
 		return parser;
 	}
 
-	public String getResult() throws JSONException, IOException, UnirestException
+	public String getResult() throws JSONException, IOException, UnirestException, InterruptedException
 	{
 		String URI = setSubjectPageURI();
 		String url = "<http://dbpedia.org/resource/" + URI + ">";
 
+		//System.out.println("Question is ---" + this.question);
+		RuntimeExec rt = new RuntimeExec();
+		String questionType = rt.getType(this.question);
+
+		String[] q = questionType.split("\n");
+		String finalQuestionType = q[q.length-1];
+
+		//System.out.println("question type ---- " + finalQuestionType);
+		String[] qt = finalQuestionType.split(" ");
+
+
 		HashSet<String> tags = getTags(URI);
+
 		HashMap<String, Integer> dbpedia_tags = getDbpediaTags(tags);
+		//System.out.println(dbpedia_tags.size());
 
-		String final_tag = rankTags(dbpedia_tags);
-		System.out.println("final tag" + final_tag);
+		//classifying the tags
+		HashMap<String, Integer> finalClassifiedTags = classifyTags(dbpedia_tags, qt[0]);
+		//System.out.println(finalClassifiedTags.size());
 
-		int rank = dbpedia_tags.get(final_tag);
-		//System.out.println("RANK =====" + rank);
+		String queryResult = "The system cannot answer this now ! We are working on it :)";
 
-		String queryResult = null;
+		if(! finalClassifiedTags.isEmpty()){
 
-		if(rank > 0){
+			String final_tag = rankTags(finalClassifiedTags);
+			//System.out.println("final tag" + final_tag);
+			int rank = finalClassifiedTags.get(final_tag);
+			System.out.println("in main rank is " + rank);
 
-			try{
+			if(rank > 0){
 
-				queryResult = getSparqlQuery(final_tag, url);
-				//System.out.println(queryResult);
-				if(queryResult.contains("dbpedia.org")){
+				try{
 
-					String[] ch = queryResult.split("/");
-					queryResult = ch[ch.length-1];
+					queryResult = getSparqlQuery(final_tag, url);
+					if(queryResult.contains("dbpedia.org")){
+
+						String[] ch = queryResult.split("/");
+						queryResult = ch[ch.length-1];
+					}
+					else{
+
+						//System.out.println("here");
+						String[] ch = queryResult.split("\\^");
+						queryResult = ch[0];
+					}
 				}
-				else{
+				catch(Exception ex)
+				{
+					queryResult="The system cannot answer this now ! We are working on it :)";
 
-					System.out.println("here");
-					String[] ch = queryResult.split("\\^");
-					queryResult = ch[0];
 				}
 			}
-			catch(Exception ex)
-			{
-				queryResult="Cannot find answer";
+			else{
+
+				//System.out.println("here");
+				queryResult=parseAbstract(url, questionType);
 
 			}
 		}
 		else{
 
-			queryResult = "The system cannot answer this now ! We are working on it :)";
+
+
+			queryResult=parseAbstract(url, questionType);
+
 		}
+
 
 		return queryResult;
 	}
@@ -226,6 +254,47 @@ public class POS_tagger {
 		return dbpedia_tags;
 	}
 
+	public HashMap<String, Integer> classifyTags(HashMap<String, Integer> dbpedia_tags, String questionType) throws InterruptedException, IOException{
+
+		System.out.println("Inside classify tags");
+
+		HashMap<String, Integer> finalClassifiedTags = new HashMap<String, Integer>();
+		RuntimeExec runTime = new RuntimeExec();
+
+		for(String key:dbpedia_tags.keySet()){
+
+			String[] jTag = key.split(":");
+			String justTag = jTag[1];
+
+			String[] splitTagPhrase = justTag.split("(?<=[a-z])(?=[A-Z])");
+			String tagPhrase = "";
+
+			for(String tp:splitTagPhrase){
+
+				tagPhrase += tp + " ";
+			}
+
+			tagPhrase = tagPhrase.trim();
+			String tagType = runTime.getType(tagPhrase);	
+
+			String[] t = tagType.split("\n");
+			String tType = t[t.length-1];
+			String tt[] = tType.split(" ");
+			String finalTagType = tt[0];
+
+			if(finalTagType.toLowerCase().equals(questionType.toLowerCase())){
+
+				finalClassifiedTags.put(key, 0);
+			}
+
+		}
+
+		System.out.println("final classified tags : \n" + finalClassifiedTags.size());
+		return finalClassifiedTags;
+	}
+
+
+
 	public String rankTags(HashMap<String, Integer> dbpedia_tags) throws UnirestException{
 
 		String final_tag = null;
@@ -249,6 +318,7 @@ public class POS_tagger {
 		whList = parser.getWhList();
 
 
+
 		List<String> lemma = new ArrayList<String>();
 
 		//dictionary for wh words
@@ -256,7 +326,7 @@ public class POS_tagger {
 		List<String> whenDict = new ArrayList<String>();
 		whenDict.add("date");
 		whenDict.add("year");
-		
+
 		List<String> whereDict = new ArrayList<String>();
 		whereDict.add("place");
 		whereDict.add("location");
@@ -304,7 +374,7 @@ public class POS_tagger {
 			lemma.add(lst.get(0));
 		}
 
-		System.out.println(lemma + "lemma ------------------------------");
+		//System.out.println(lemma + "lemma ------------------------------");
 
 		List<String> related_terms = new ArrayList<String>();
 
@@ -314,7 +384,7 @@ public class POS_tagger {
 
 		if(!verbList.isEmpty() && verbList.get(0).toString().toLowerCase().equals("die")){
 
-			related_terms.add("death");
+			lemma.add("death");
 			flag = 1;
 		}
 
@@ -356,7 +426,7 @@ public class POS_tagger {
 		}
 
 
-		System.out.println(related_terms);
+		//System.out.println(related_terms);
 
 
 		for(String tag :dbpedia_tags.keySet()){
@@ -364,7 +434,7 @@ public class POS_tagger {
 			//checking wh word
 
 			if(! whList.isEmpty()){
-				
+
 				//when 
 
 				if(whList.get(0).toString().toLowerCase().equals("when")){
@@ -377,26 +447,31 @@ public class POS_tagger {
 
 						if(tag.toLowerCase().contains(word.toLowerCase())){
 
-							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*2);
+							//System.out.println(dbpedia_tags.get(tag)+ "------");
 						}
 					}
 				}
-				
+
 				//where
-				
+
 				if(whList.get(0).toString().toLowerCase().equals("where")){
+
+
 
 
 					for(String word : whereDict){
 
 						if(tag.toLowerCase().contains(word.toLowerCase())){
 
-							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*2);
+							//System.out.println(dbpedia_tags.get(tag)+ "------");
 						}
 					}
 				}
-				
-				
+
+
+
 			}
 
 			//rank acc to vbn list
@@ -410,7 +485,8 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(v.toLowerCase())){
 
 
-						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
+						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
@@ -425,7 +501,8 @@ public class POS_tagger {
 
 					if(tag.toLowerCase().contains(v.toLowerCase())){
 
-						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
+						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
@@ -440,7 +517,8 @@ public class POS_tagger {
 
 					if(tag.toLowerCase().contains(n.toLowerCase())){
 
-						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
+						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
@@ -455,9 +533,23 @@ public class POS_tagger {
 
 					if(tag.toLowerCase().contains(n.toLowerCase())){
 
-						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
+						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
+			}
+
+			if(! lemma.isEmpty()){
+
+				for(String lem:lemma){
+
+					if(tag.toLowerCase().contains(lem.toLowerCase())){
+
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*3);
+						//System.out.println(dbpedia_tags.get(tag)+ "------");
+					}
+				}
+
 			}
 
 			if(! related_terms.isEmpty()){
@@ -467,6 +559,7 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(s.toLowerCase())){
 
 						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
+						//System.out.println(dbpedia_tags.get(tag)+ "------");
 
 					}
 				}
@@ -488,7 +581,7 @@ public class POS_tagger {
 		}
 
 
-		System.out.println("RANK " + dbpedia_tags.get(final_tag));
+		//System.out.println("RANK " + dbpedia_tags.get(final_tag));
 		return final_tag;
 	}
 
@@ -517,6 +610,276 @@ public class POS_tagger {
 
 
 	}
+
+	public String parseAbstract(String url, String questionType) throws UnirestException{
+
+		String sparql_query = "SELECT ?variable WHERE {" + url + " dbo:abstract ?variable FILTER langMatches(lang(?variable) ,\"EN\") . }";
+		String stringQuery = "PREFIX dbo: <http://dbpedia.org/ontology/> " +
+				"PREFIX dbp: <http://dbpedia.org/property/>" +
+				"PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> " 
+				+"PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"+ sparql_query;
+
+		//System.out.println(stringQuery);
+
+		Query query = QueryFactory.create(stringQuery);
+		QueryExecution qexec = QueryExecutionFactory.sparqlService("http://dbpedia.org/sparql", query);
+
+		ResultSet results = qexec.execSelect();
+		QuerySolution soln = results.nextSolution();
+
+		//RDFNode l = soln.get("variable");
+		Literal l = (Literal) soln.get("variable");
+		//		System.out.println(l);
+		qexec.close() ;
+		String abs = l.toString();
+		//System.out.println("ABSTRACT == " + abs);
+
+		String[] absLines = abs.split("\\.");
+
+		//parsing the question
+		parser = new SentenceParser();
+		parser.setProcessedTree(question);
+
+		List<Tree> vbnList = new ArrayList<Tree>();
+		List<Tree> verbList = new ArrayList<Tree>();
+		List<Tree> nnList = new ArrayList<Tree>();
+		List<Tree> nnsList = new ArrayList<Tree>();
+		List<Tree> vbdList = new ArrayList<Tree>();
+		List<Tree> whList = new ArrayList<Tree>();
+		List<Tree> adjList = new ArrayList<Tree>();
+
+
+		vbnList = parser.getVbnList();
+		verbList = parser.getVerbList();
+		nnList = parser.getNnList();
+		nnsList = parser.getNnsList();
+		vbdList = parser.getVbdList();
+		whList = parser.getWhList();
+		adjList = parser.getAdjList();
+
+		String ans = null;
+
+		if(! whList.isEmpty()){
+
+			String whQuestion = whList.get(0).toString();
+
+			if(whQuestion.toLowerCase().equals("when")){
+
+
+
+				for(String line : absLines){
+
+					if(! vbnList.isEmpty()){
+
+						if(line.contains(vbnList.get(0).toString())){
+
+							ans = findDate(line);
+							break;
+						}
+					}
+
+					if(! adjList.isEmpty()){
+
+						if(! adjList.isEmpty() && ! nnList.isEmpty()){
+
+							if(line.contains(adjList.get(0).toString()) && line.contains(nnList.get(0).toString())){
+
+								ans = findDate(line);
+								break;
+							}
+
+						}
+
+
+					}
+					else{
+
+						if(! nnList.isEmpty()){
+
+							if(line.contains(nnList.get(0).toString())){
+
+								ans = findDate(line);
+								break;
+							}
+						}
+					}
+
+					//whenAns = findFirstDate(absLines);
+
+
+				}
+			}
+
+			if(whQuestion.toLowerCase().equals("where")){
+				
+				int vFlag = 0;
+				int nFlag = 0;
+				
+				for(String line:absLines){
+					
+					if(! verbList.isEmpty()){
+						
+						if(line.contains(verbList.get(0).toString())){
+							
+							vFlag = 1;
+							ans = getLocation(line);
+							break;
+						}
+					}
+					
+					if(! nnList.isEmpty()){
+						
+						if(line.contains(nnList.get(0).toString())){
+							
+							nFlag = 1;
+							ans = getLocation(line);
+							break;
+						}
+					}
+				
+				}
+				
+				if(vFlag == 0 && nFlag == 0){
+					
+					for(String li : absLines){
+						
+						li = li.replace(" ", "+");
+						li = li.replace(",", "%2c");
+						HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/locations?text=" + li)
+								.header("X-Mashape-Key", "19RiyMYdg0mshnjhf293boQnBnvqp1HKSiojsn3fF2JXZ5vcHK")
+								.header("Accept", "application/json")
+								.asJson();
+						
+						if(response.getBody().toString().length() > 2){
+							
+							String result = "{ \"result\" : " + response.getBody().toString() + "}";
+							JSONObject resp = new JSONObject(result);
+							JSONArray arr = (JSONArray) resp.get("result");
+							resp = (JSONObject) arr.get(0);
+							ans = (String) resp.get("name");
+							return ans;
+						}
+					}
+				}
+				
+			}
+			
+			if(whQuestion.toLowerCase().equals("who")){
+				
+				int vbdFlag =0;
+				int nnFlag = 0;
+				int nnsFlag = 0;
+				
+				for(String line: absLines){
+					
+					if(! vbdList.isEmpty()){
+						
+						if(line.contains(vbdList.get(0).toString())){
+							
+							//vbdFlag = 1;
+							ans = getPerson(line);
+							break;
+						}
+					}
+					
+					if(! nnList.isEmpty()){
+						
+						if(line.contains(nnList.get(0).toString())){
+							
+							ans = getPerson(line);
+							break;
+						}
+					}
+					
+				
+				}
+			}
+		}
+
+		return(ans);
+
+	}
+
+	
+
+	public String findDate(String line){
+
+		String date = null;
+		line= line.trim();
+		System.out.println(line);
+		line = line.replace(" ", "+");
+		line = line.replace(",", "%2C");
+
+		return date;
+	}
+
+	public String getDate(String line){
+		String[] words = line.split(" ");
+		System.out.println("line"+  line);
+		System.out.println("words is "+ words.length);
+
+		for(String str : words){
+			System.out.println("string is :"+ str);
+			if(str.length() > 2 && StringUtils.isNumeric(str.substring(0, 1))){
+				return str;
+			}
+		}return null;
+	}
+	
+	public String getLocation(String line) throws UnirestException{
+		
+		line = line.replace(" ", "+");
+		line.replace(",", "%2c");
+		String ans = null;
+		
+		HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/locations?text=" + line)
+				.header("X-Mashape-Key", "19RiyMYdg0mshnjhf293boQnBnvqp1HKSiojsn3fF2JXZ5vcHK")
+				.header("Accept", "application/json")
+				.asJson();
+		String result = "{ \"result\" : " + response.getBody().toString() + "}";
+		JSONObject resp = new JSONObject(result);
+		JSONArray arr = (JSONArray) resp.get("result");
+		resp = (JSONObject) arr.get(0);
+		ans = (String) resp.get("name");
+		
+		//ans = arr.get(0).toString();
+		System.out.println("location ans---" + ans);
+		
+		return ans;
+	}
+	
+	public String getPerson(String line) throws UnirestException{
+		
+		line = line.replace(" ", "+");
+		line = line.replace(",", "%2c");
+		String ans = null;
+		
+		HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/entities?text=This+text+contains+entities+such+as+the+singer+John+Hiatt+and+the+actor+Jim+Carry.")
+				.header("X-Mashape-Key", "r2iAzEK2ilmshMy6isqkHL9j8UiJp1XMo3ojsn1IMggY2xD7DK")
+				.header("Accept", "application/json")
+				.asJson();
+		
+		String result = "{ \"result\" : " + response.getBody().toString() + "}";
+		JSONObject resp = new JSONObject(result);
+		JSONArray arr = (JSONArray)resp.get("result");
+		
+		if(resp.get("type").equals("PER")){
+			ans = (String) resp.get("entity");
+		}
+		
+		return ans;
+	}
+
+	//	public String findFirstDate(String[] absLines){
+	//		
+	//		String date = null;
+	//		
+	//		for(String line:)
+	//		
+	//		return date;
+	//	}
+
+
 
 	//	public String getResultForQuestion(){
 	//
@@ -639,19 +1002,6 @@ public class POS_tagger {
 	//			}
 	//		}
 	//		return "";
-	//	}
-	//
-	//	public String getDate(String line){
-	//		String[] words = line.split(" ");
-	//		System.out.println("line"+  line);
-	//		System.out.println("words is "+ words.length);
-	//
-	//		for(String str : words){
-	//			System.out.println("string is :"+ str);
-	//			if(str.length() > 2 && StringUtils.isNumeric(str.substring(0, 1))){
-	//				return str;
-	//			}
-	//		}return null;
 	//	}
 	//
 	//	public boolean checkVerb(SentenceParser parser){

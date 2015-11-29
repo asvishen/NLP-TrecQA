@@ -43,36 +43,47 @@ public class RuntimeExec {
 	}
 
 	// this is where the action is
-	public static void main(String[] args) {
+	public String getType(String myQuery) throws InterruptedException, IOException{
 		Runtime rt = Runtime.getRuntime();
 		RuntimeExec rte = new RuntimeExec();
 		StreamWrapper error, output;
 
 		try {
 
-			String myquery = "What_is_the_capital_of_India?";
-			String[] arr = { "What is the capital of India?"}; 
-			String s = "/Users/avijitvishen/anaconda/bin/python /Volumes/Extension/eclipseProjects/Factoid-Question-Answering/answer_classifier.py --query "
-					+ myquery;
+			//String myquery = "What_is_the_capital_of_India?";
+			//String[] arr = { "What is the capital of India?"};
+			myQuery = myQuery.trim();
+			myQuery = myQuery.replace(" ", "_");
+			//System.out.println("query is ---- " + myQuery);
+			String s = "C:/Users/Avani/Anaconda2/python C:/Users/Avani/git/Factoid-Question-Answering/answer_classifier.py --query "
+					+ myQuery;
 
-			System.out.println(s);
+			//System.out.println(s);
 
 			Process proc = rt.exec(s);
-			
+
 			error = rte.getStreamWrapper(proc.getErrorStream(), "ERROR");
 			output = rte.getStreamWrapper(proc.getInputStream(), "OUTPUT");
 			int exitVal = 0;
 
-			error.start();
+			//			error.start();
 			output.start();
-			error.join(3000);
-			output.join(3000);
-			exitVal = proc.waitFor();
-			System.out.println("Output: " + output.message);
-		} catch (IOException e) {
-			e.printStackTrace();
+			//			error.join(3000);
+			output.join();
+			//exitVal = proc.waitFor();
+			//System.out.println("Output: " + output.message);
+
+			String answerType = output.message;
+			//System.out.println(answerType);
+			return answerType;
+
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return null;
 	}
 }
