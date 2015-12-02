@@ -33,11 +33,18 @@ public class SentenceParser {
     List<Tree> nnList = new ArrayList<Tree>();
     List<Tree> nnsList = new ArrayList<Tree>();
     List<Tree> vbdList = new ArrayList<Tree>();
+    List<Tree> wpList = new ArrayList<Tree>();
+    List<Tree> exList = new ArrayList<Tree>();
+    List<Tree> wdtList = new ArrayList<Tree>();
    
     public List<Tree> getVbdList() {
 		return vbdList;
 	}
-
+    
+    public List<Tree> getWdtList() {
+		return wdtList;
+	}
+    
 	public List<Tree> getAdjList() {
 		return adjList;
 	}
@@ -69,9 +76,16 @@ public class SentenceParser {
 	public List<Tree> getWhList() {
 		return whList;
 	}
+	
+	public List<Tree> getWpList() {
+		return wpList;
+	}
 
 	public List<Tree> getNounPhrase() {
 		return nounPhrase;
+	}
+	public List<Tree> getexList() {
+		return exList;
 	}
 
 	public LexicalizedParser getLexicalizedParser()
@@ -124,6 +138,15 @@ public class SentenceParser {
           }
           if(subtree.label().value().equals("VBD")){
               vbdList.add(subtree.lastChild());
+          }
+          if(subtree.label().value().equals("WP")){
+              wpList.add(subtree.lastChild());
+          }
+          if(subtree.label().value().equals("EX")){
+        	  exList.add(subtree.lastChild());
+          }
+          if(subtree.label().value().equals("WDT")){
+        	  wdtList.add(subtree.lastChild());
           }
           
         }

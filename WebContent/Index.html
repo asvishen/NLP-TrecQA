@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>ui</title>
+    <title>NLP</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
   </head>
   <body>
@@ -16,11 +16,25 @@
     </select>
     <button type="text" id="button"> Submit </button>
     <br>
+    
+    <h4>Question Classifier</h4>
+	Coarse Classifier : 
+	<span id = "CoarseType"></span>
+    <br>
+    Fine Classifier : 
+    <span id = "FineType"></span>
+    <br>
+    Matching Classifiers With Tags : 
+    <span id = "Tags"></span>
+    <br>
     <br>
     Answer :
     <span id="answer"></span>
 
     <script>
+    // var data = { "CoarseType" : "hum ", "FineType" : "gr","tags": [{"dbp:networth" : "0"},{"dbo:hometown" : "0"},{"dbo:recordLabel" : "0"},{"dbp:birthName" : "7"},{"dbp:genre" : "0"},{"dbp:name" : "7"},{"dbo:thumbnail" : "0"},{"dbp:caption" : "0"},{"dbo:genre" : "0"},{"dbo:background" : "0"},{"dbp:occupation" : "0"},{"dbo:associatedBand" : "0"},{"dbo:associatedMusicalArtist" : "0"},{"dbp:background" : "0"},{"dbp:hasPhotoCollection" : "0"},{"dbp:id" : "0"},{"dbo:abstract" : "0"}],"answer" : "William Frederick Durst" }
+    
+    
       var xml = null;
       $.ajax({
         type: "GET",
@@ -65,16 +79,47 @@
           alert("Please select a question");
           return false;
         }
-
+        
+        
+        
         $.ajax({
           type: "GET",
           url: "./ParseQuestion",
           data:"question="+ q_text +"&subject="+sub_text,
+          dataType: 'json',
           success: function(data) {
-            $('#answer').text(data);
-          }
+			console.log(data["result"])
+            $('#answer').text(data["answer"]);
+            $('#CoarseType').text(data["CoarseType"]);
+            $('#FineType').text(data["FineType"]);
+            var tags = data["tags"];
+            console.log(tags);
+            // var splitted = tags.split(",");
+            var i,result="<table cellspacing=\"0\" cellpadding=\"5\" border=\"1\">";
+            result += "<tr>";
+            result += "<td>" + "Tag" + "</td>";
+            result += "<td>" + "Rank" + "</td>";
+            result += "</tr>";
+            $.each(tags, function(key, value) {
+            	result += "<tr>";
+            	result += "<td>" + Object.keys(this)[0] + "</td>"; // keys
+            	result += "<td>" + this[Object.keys(this)[0]]  + "</td>"; // value
+            	result += "</tr>";
+            });
+            /* for(i=0;i<tags.length;i++)
+            	{
+            	result += "<li>" + splitted[i] + "</li>";
+            	} */
+            result += "</table>"
+            $('#Tags').html(result);
+
+            
+
+			
+            }
+  
         });
-      })
+      }) 
     </script>
   </body>
 </html>

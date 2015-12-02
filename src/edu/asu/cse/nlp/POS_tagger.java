@@ -38,6 +38,7 @@ public class POS_tagger {
 	private String subject;
 	private String question;
 	private String url;
+	private String result;
 
 
 	SentenceParser parser;
@@ -91,11 +92,14 @@ public class POS_tagger {
 
 	public String getResult() throws JSONException, IOException, UnirestException, InterruptedException
 	{
+		StringBuffer buff = new StringBuffer();
+		System.out.println("Building URI from the subject ....");
 		String URI = setSubjectPageURI();
 		String url = "<http://dbpedia.org/resource/" + URI + ">";
 
-		//System.out.println("Question is ---" + this.question);
+		System.out.println("Getting question type from the classifier");
 		RuntimeExec rt = new RuntimeExec();
+		System.out.println("Question that is bein classified" + this.question);
 		String questionType = rt.getType(this.question);
 
 		String[] q = questionType.split("\n");
@@ -104,26 +108,31 @@ public class POS_tagger {
 		//System.out.println("question type ---- " + finalQuestionType);
 		String[] qt = finalQuestionType.split(" ");
 
+		buff.append("{ \"CoarseType\" : \""+ qt[0] + " \", \"FineType\" : \"" + qt[1] + "\",");
 
+		result = buff.toString();
+		
+		System.out.println("Getting corresponding DBpedia tags");
 		HashSet<String> tags = getTags(URI);
 
 		HashMap<String, Integer> dbpedia_tags = getDbpediaTags(tags);
 		//System.out.println(dbpedia_tags.size());
-
-		//classifying the tags
-		HashMap<String, Integer> finalClassifiedTags = classifyTags(dbpedia_tags, qt[0]);
-		//System.out.println(finalClassifiedTags.size());
-
 		String queryResult = "The system cannot answer this now ! We are working on it :)";
 
-		if(! finalClassifiedTags.isEmpty()){
+		if(this.question.toLowerCase().contains("what")){
 
-			String final_tag = rankTags(finalClassifiedTags);
-			//System.out.println("final tag" + final_tag);
-			int rank = finalClassifiedTags.get(final_tag);
-			System.out.println("in main rank is " + rank);
+			System.out.println("question is a what question .. ");
+
+			//String queryResult = "The system cannot answer this now ! We are working on it :)";
+
+			String final_tag = rankTags(dbpedia_tags, this.question);
+			System.out.println("FINAL TAG " + final_tag);
+			int rank = dbpedia_tags.get(final_tag);
+			System.out.println("RANK FORMED -- " + rank);
 
 			if(rank > 0){
+
+				System.out.println("Rank not zero ... generating sparql query .... ");
 
 				try{
 
@@ -146,23 +155,90 @@ public class POS_tagger {
 
 				}
 			}
+			//			else{
+			//
+			//				System.out.println("Rank is 0 ... parsing abstract");
+			//				queryResult=parseWhatAbstract(url, questionType);
+			//
+			//			}
+			
+		}
+		else
+		{
+			//classifying the tags
+			System.out.println("classifying the tags");
+			HashMap<String, Integer> finalClassifiedTags = classifyTags(dbpedia_tags, qt[0]);
+			//System.out.println(finalClassifiedTags.size());
+
+			
+
+			if(! finalClassifiedTags.isEmpty()){
+
+				System.out.println("Ranking the tags ....");
+				String final_tag = rankTags(finalClassifiedTags, this.question);
+				if(final_tag == "dbo:birthPlace"){
+					finalClassifiedTags.put("dbo:birthPlace", 10);
+				}
+				int rank = finalClassifiedTags.get(final_tag);
+
+				if(rank > 0){
+
+					System.out.println("Rank not zero ... generating sparql query .... ");
+
+					try{
+
+						queryResult = getSparqlQuery(final_tag, url);
+						if(queryResult.contains("dbpedia.org")){
+
+							String[] ch = queryResult.split("/");
+							queryResult = ch[ch.length-1];
+						}
+						else{
+
+							//System.out.println("here");
+							String[] ch = queryResult.split("\\^");
+							queryResult = ch[0];
+						}
+					}
+					catch(Exception ex)
+					{
+						queryResult="The system cannot answer this now ! We are working on it :)";
+
+					}
+				}
+				else{
+
+					System.out.println("Rank is 0 ... parsing abstract");
+					queryResult=parseAbstract(url, questionType);
+
+				}
+			}
 			else{
 
-				//System.out.println("here");
+
+				System.out.println("No tags of the same category ... parsing abstract ... ");
 				queryResult=parseAbstract(url, questionType);
 
 			}
+
+
+			
 		}
-		else{
-
-
-
-			queryResult=parseAbstract(url, questionType);
+		if(queryResult.contains("_"))
+		{
+				queryResult =  queryResult.replace("_", " ");
+		}
+		if(queryResult.contains("@"))
+		{
+			String[] splitted =  queryResult.split("@");
+			queryResult = splitted[0];
 
 		}
+		result = result + ",\"answer\" : \"" + queryResult + "\" }";
+		System.out.println("JSON result is : " +result);
+		JSONObject obj = new JSONObject(result);
 
-
-		return queryResult;
+		return obj.toString();
 	}
 
 	public String setSubjectPageURI()
@@ -256,6 +332,7 @@ public class POS_tagger {
 
 	public HashMap<String, Integer> classifyTags(HashMap<String, Integer> dbpedia_tags, String questionType) throws InterruptedException, IOException{
 
+		System.out.println("Final question type ---- " + questionType);
 		System.out.println("Inside classify tags");
 
 		HashMap<String, Integer> finalClassifiedTags = new HashMap<String, Integer>();
@@ -275,12 +352,16 @@ public class POS_tagger {
 			}
 
 			tagPhrase = tagPhrase.trim();
-			String tagType = runTime.getType(tagPhrase);	
+			String tagType = runTime.getType(tagPhrase);
+			System.out.println("The tag that is being classified --- " + tagPhrase);
 
 			String[] t = tagType.split("\n");
 			String tType = t[t.length-1];
 			String tt[] = tType.split(" ");
 			String finalTagType = tt[0];
+
+			System.out.println("Final tag type ---- " + finalTagType);
+
 
 			if(finalTagType.toLowerCase().equals(questionType.toLowerCase())){
 
@@ -293,14 +374,32 @@ public class POS_tagger {
 		return finalClassifiedTags;
 	}
 
+	//	public String rankWhatTags(HashMap<String, Integer> tagMap, String question){
+	//		
+	//		String final_tag = null;
+	//		System.out.println("Inside rank what tags");
+	//		System.out.println("Question is -- " + question);
+	//		
+	//		HashMap<String, String> mapDict = new HashMap<String, String>();
+	//		mapDict.put("ethnic", "enthnicmakeup");
+	//		mapDict.put("group", "band");
+	//		mapDict.put("stand", "formername");
+	//		
+	//		return final_tag;
+	//	}
 
 
-	public String rankTags(HashMap<String, Integer> dbpedia_tags) throws UnirestException{
+
+	public String rankTags(HashMap<String, Integer> dbpedia_tags, String question) throws UnirestException{
+
+		System.out.println("Inside rank tags");
 
 		String final_tag = null;
 
 		parser = new SentenceParser();
 		parser.setProcessedTree(question);
+
+		System.out.println("Parsing question ... ");
 
 		List<Tree> vbnList = new ArrayList<Tree>();
 		List<Tree> verbList = new ArrayList<Tree>();
@@ -308,6 +407,8 @@ public class POS_tagger {
 		List<Tree> nnsList = new ArrayList<Tree>();
 		List<Tree> vbdList = new ArrayList<Tree>();
 		List<Tree> whList = new ArrayList<Tree>();
+		List<Tree> wpList = new ArrayList<Tree>();
+		List<Tree> wdtList = new ArrayList<Tree>();
 
 
 		vbnList = parser.getVbnList();
@@ -316,8 +417,8 @@ public class POS_tagger {
 		nnsList = parser.getNnsList();
 		vbdList = parser.getVbdList();
 		whList = parser.getWhList();
-
-
+		wpList = parser.getWpList();
+		wdtList = parser.getWdtList();
 
 		List<String> lemma = new ArrayList<String>();
 
@@ -333,9 +434,30 @@ public class POS_tagger {
 		whereDict.add("residence");
 		whereDict.add("hometown");
 
+		List<String> whoDict = new ArrayList<String>();
+		whoDict.add("parents");
+		whoDict.add("spouse");
+		whoDict.add("keypeople");
+
+		HashMap<String, String> whatDict = new HashMap<String, String>();
+		whatDict.put("stand", "dbp:formerName");
+		whatDict.put("durst", "dbp:associatedActs");
+		whatDict.put("music", "dbo:genre");
+		whatDict.put("hit", "dbp:title");
+		whatDict.put("alien", "dbp:affiliation");
+		whatDict.put("group", "dbp:associatedActs");
+		whatDict.put("real", "dbp:birthName");
+		whatDict.put("original", "dbp:birthName");
+		whatDict.put("profession", "dbo:occupation");
+		whatDict.put("famous", "dbo:knownFor");
+		whatDict.put("original", "dbp:birthName");
+		whatDict.put("war", "dbp:battles");
+		whatDict.put("insect", "dbo:order");
+
+
 		//System.out.println("verb list" + verbList);
 
-
+		System.out.println("Getting lemmas ... ");
 		for(Tree vbn : vbnList){
 
 			Lemmatizer lemmaObject = new Lemmatizer();
@@ -374,7 +496,7 @@ public class POS_tagger {
 			lemma.add(lst.get(0));
 		}
 
-		//System.out.println(lemma + "lemma ------------------------------");
+		System.out.println("Getting related terms");
 
 		List<String> related_terms = new ArrayList<String>();
 
@@ -389,9 +511,16 @@ public class POS_tagger {
 		}
 
 
+
 		for(String lem : lemma){
 
 			try{
+				if(lem.contains("\\/"))
+				{
+					String[] spl = lem.split("\\/");
+
+					lem = spl[0];
+				}
 				HttpResponse<JsonNode> response = Unirest.get("https://wordsapiv1.p.mashape.com/words/"+lem+"/synonyms").header("X-Mashape-Key", "jbww4coyOHmshYmdYYBixq9DtwsYp1PgetcjsnmKRdjNTLbMQ8")
 						.header("Content-Type", "application/x-www-form-urlencoded")
 						.header("Accept", "application/json").asJson();
@@ -402,6 +531,8 @@ public class POS_tagger {
 
 				for(int i=0; i<arr.length(); i++)
 					related_terms.add(arr.get(i).toString());
+
+
 
 				HttpResponse<JsonNode> response_der = Unirest.get("https://wordsapiv1.p.mashape.com/words/"+lem+"/derivation").header("X-Mashape-Key", "jbww4coyOHmshYmdYYBixq9DtwsYp1PgetcjsnmKRdjNTLbMQ8")
 						.header("Content-Type", "application/x-www-form-urlencoded")
@@ -418,26 +549,53 @@ public class POS_tagger {
 			}
 
 			catch(Exception e){
-
+				System.out.println(lem);
 				e.printStackTrace();
 			}
 
 
 		}
 
+		String whQuestion = "";
+		if(! whList.isEmpty())
+			whQuestion = whList.get(0).toString().toLowerCase();
+		if(! wpList.isEmpty())
+			whQuestion = wpList.get(0).toString().toLowerCase();
+		if(! wdtList.isEmpty())
+			whQuestion = wdtList.get(0).toString().toLowerCase();
 
 		//System.out.println(related_terms);
+
+		if(whQuestion.equals("what")){
+
+			System.out.println("what question dictionary");
+			for(String word : whatDict.keySet()){
+
+				if(question.toLowerCase().contains(word.toLowerCase())){
+
+					String tag = whatDict.get(word);
+					dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*10);
+				}
+			}
+
+		}
 
 
 		for(String tag :dbpedia_tags.keySet()){
 
 			//checking wh word
+			System.out.println("Ranking tags ... ");
 
-			if(! whList.isEmpty()){
+			if(! whList.isEmpty() || !wpList.isEmpty() || ! wdtList.isEmpty()){
+
+
 
 				//when 
 
-				if(whList.get(0).toString().toLowerCase().equals("when")){
+				if(whQuestion.equals("when")){
+
+
+					System.out.println("when question dictionary");
 
 					if(flag == 1)
 						related_terms.remove("cause");
@@ -455,12 +613,27 @@ public class POS_tagger {
 
 				//where
 
-				if(whList.get(0).toString().toLowerCase().equals("where")){
+				if(whQuestion.equals("where")){
 
-
+					System.out.println("where question dictionary");
 
 
 					for(String word : whereDict){
+
+						if(tag.toLowerCase().contains(word.toLowerCase())){
+
+							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*2);
+							//System.out.println(dbpedia_tags.get(tag)+ "------");
+						}
+					}
+				}
+
+				if(whQuestion.equals("who")){
+
+					System.out.println("who question dictionary");
+
+
+					for(String word : whoDict){
 
 						if(tag.toLowerCase().contains(word.toLowerCase())){
 
@@ -475,7 +648,7 @@ public class POS_tagger {
 			}
 
 			//rank acc to vbn list
-
+			System.out.println("rank acc to vbn list");
 			if(! vbnList.isEmpty()){
 
 				for(Tree verb: vbnList){
@@ -485,13 +658,15 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(v.toLowerCase())){
 
 
-						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*5);
 						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
 
 			//rank acc to verb list
+			System.out.println("rank acc to verb list");
+
 
 			if(! verbList.isEmpty()){
 
@@ -501,13 +676,15 @@ public class POS_tagger {
 
 					if(tag.toLowerCase().contains(v.toLowerCase())){
 
-						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
+						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*5);
 						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
 
 			//rank acc to NN
+			System.out.println("rank acc to nn list");
+
 
 			if(! nnList.isEmpty()){
 
@@ -524,6 +701,8 @@ public class POS_tagger {
 			}
 
 			// rank according to NNS
+			System.out.println("rank acc to nns list");
+
 
 			if(! nnsList.isEmpty()){
 
@@ -539,6 +718,9 @@ public class POS_tagger {
 				}
 			}
 
+			System.out.println("rank acc to lemma list");
+
+
 			if(! lemma.isEmpty()){
 
 				for(String lem:lemma){
@@ -551,6 +733,8 @@ public class POS_tagger {
 				}
 
 			}
+			System.out.println("rank acc to related terms list");
+
 
 			if(! related_terms.isEmpty()){
 
@@ -569,17 +753,37 @@ public class POS_tagger {
 		}
 
 		//selecting the tag with highest value. 
-		int max = -99;
-		final_tag = null;
+		System.out.println("selecting tag with the highest value");
 
-		for(String tag:dbpedia_tags.keySet()){
-
-			if(dbpedia_tags.get(tag) > max){
-				max = dbpedia_tags.get(tag);
-				final_tag = tag;
-			}
+		if(!whList.isEmpty() && !vbnList.isEmpty() && whList.get(0).toString().toLowerCase().equals("where") && vbnList.get(0).toString().toLowerCase().equals("born")){
+			final_tag = "dbo:birthPlace";
+			//dbpedia_tags.put("dbo:birthPlace", value)
+			//System.out.println("here");
 		}
 
+		else{
+
+			StringBuffer buff = new StringBuffer();
+			buff.append("\"tags\": [" );
+
+			//selecting the tag with highest value. 
+			int max = -99;
+			final_tag = null;
+
+			for(String tag:dbpedia_tags.keySet()){
+				buff.append("{\"").append(tag).append("\" : ");
+				if(dbpedia_tags.get(tag) > max){
+					max = dbpedia_tags.get(tag);
+					final_tag = tag;
+				}
+				buff.append("\"").append(dbpedia_tags.get(tag)).append("\"}");
+				buff.append(",");
+			}
+			String tags = buff.substring(0, buff.length()-1);
+			tags = tags + "]";
+
+			result = result+tags;
+		}
 
 		//System.out.println("RANK " + dbpedia_tags.get(final_tag));
 		return final_tag;
@@ -633,10 +837,14 @@ public class POS_tagger {
 		qexec.close() ;
 		String abs = l.toString();
 		//System.out.println("ABSTRACT == " + abs);
+		System.out.println("retrieving abstract");
+
 
 		String[] absLines = abs.split("\\.");
 
 		//parsing the question
+		System.out.println("parsing question");
+
 		parser = new SentenceParser();
 		parser.setProcessedTree(question);
 
@@ -647,6 +855,8 @@ public class POS_tagger {
 		List<Tree> vbdList = new ArrayList<Tree>();
 		List<Tree> whList = new ArrayList<Tree>();
 		List<Tree> adjList = new ArrayList<Tree>();
+		List<Tree> wpList = new ArrayList<Tree>();
+		List<Tree> exList = new ArrayList<Tree>();
 
 
 		vbnList = parser.getVbnList();
@@ -656,20 +866,41 @@ public class POS_tagger {
 		vbdList = parser.getVbdList();
 		whList = parser.getWhList();
 		adjList = parser.getAdjList();
+		wpList = parser.getWpList();
+		exList = parser.getexList();
 
-		String ans = null;
+		String ans = "";
 
-		if(! whList.isEmpty()){
+		System.out.println("wh Questions .. ");
+		System.out.println(whList);
+		System.out.println("wp Questions .. ");
+		System.out.println(wpList);
 
-			String whQuestion = whList.get(0).toString();
+
+		if(! whList.isEmpty() || !wpList.isEmpty()){
+
+			System.out.println("Into parsing abstract");
+			String whQuestion = "";
+
+			if(! whList.isEmpty())
+				whQuestion = whList.get(0).toString();
+			if(! wpList.isEmpty())
+				whQuestion = wpList.get(0).toString();
+
+			System.out.println("Question is a -- " + whQuestion);
 
 			if(whQuestion.toLowerCase().equals("when")){
 
-
+				System.out.println("When Question encountered --------------");
 
 				for(String line : absLines){
 
+					// System.out.println("Line is :" + line);
+
+
 					if(! vbnList.isEmpty()){
+
+						// System.out.println(vbnList.get(0));
 
 						if(line.contains(vbnList.get(0).toString())){
 
@@ -687,71 +918,77 @@ public class POS_tagger {
 								ans = findDate(line);
 								break;
 							}
-
 						}
+					}
 
+					if(! nnList.isEmpty()){
 
+						if(line.contains(nnList.get(0).toString())){
+
+							ans = findDate(line);
+							break;
+						}
 					}
 					else{
+						// System.out.println("Finding first date *************");
 
-						if(! nnList.isEmpty()){
+						ans = findFirstDate(line);
+						if(! StringUtils.matches(ans, "[1-9][0-9][0-9][0-9][,.:;\"\']*") && ans.length() < 3){
 
-							if(line.contains(nnList.get(0).toString())){
-
-								ans = findDate(line);
-								break;
-							}
 						}
+						else{
+							break;
+						}
+
 					}
-
-					//whenAns = findFirstDate(absLines);
-
-
 				}
 			}
 
 			if(whQuestion.toLowerCase().equals("where")){
-				
+
+				System.out.println("parsing abstract for where question");
+
+
 				int vFlag = 0;
 				int nFlag = 0;
-				
+
 				for(String line:absLines){
-					
+
 					if(! verbList.isEmpty()){
-						
+
 						if(line.contains(verbList.get(0).toString())){
-							
+
 							vFlag = 1;
 							ans = getLocation(line);
 							break;
 						}
 					}
-					
+
 					if(! nnList.isEmpty()){
-						
+
 						if(line.contains(nnList.get(0).toString())){
-							
+
 							nFlag = 1;
 							ans = getLocation(line);
 							break;
 						}
 					}
-				
+
 				}
-				
+
 				if(vFlag == 0 && nFlag == 0){
-					
+
 					for(String li : absLines){
-						
+
 						li = li.replace(" ", "+");
 						li = li.replace(",", "%2c");
 						HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/locations?text=" + li)
 								.header("X-Mashape-Key", "19RiyMYdg0mshnjhf293boQnBnvqp1HKSiojsn3fF2JXZ5vcHK")
 								.header("Accept", "application/json")
 								.asJson();
-						
+
 						if(response.getBody().toString().length() > 2){
-							
+
 							String result = "{ \"result\" : " + response.getBody().toString() + "}";
 							JSONObject resp = new JSONObject(result);
 							JSONArray arr = (JSONArray) resp.get("result");
@@ -761,37 +998,155 @@ public class POS_tagger {
 						}
 					}
 				}
-				
+
 			}
-			
+
 			if(whQuestion.toLowerCase().equals("who")){
-				
+
+				System.out.println("parsing abstract for who question");
+
 				int vbdFlag =0;
 				int nnFlag = 0;
 				int nnsFlag = 0;
-				
+
 				for(String line: absLines){
-					
+
 					if(! vbdList.isEmpty()){
-						
+
 						if(line.contains(vbdList.get(0).toString())){
-							
-							//vbdFlag = 1;
-							ans = getPerson(line);
+
+							vbdFlag = 1;
+							List<String> persons = getPersonList(line);
+							for(String per: persons){
+
+								ans += per + " ";
+							}
 							break;
 						}
 					}
-					
+
 					if(! nnList.isEmpty()){
-						
+
+						System.out.println("who with nn list");
+
 						if(line.contains(nnList.get(0).toString())){
-							
-							ans = getPerson(line);
+
+							nnFlag = 1;
+							List<String> persons = getPersonList(line);
+							for(String per: persons){
+
+								ans += per + " ";
+							}
 							break;
 						}
 					}
-					
-				
+
+					if(! nnsList.isEmpty()){
+
+						if(line.contains(nnsList.get(0).toString())){
+
+							nnsFlag = 1;
+							List<String> persons = getPersonList(line);
+							for(String per: persons){
+
+								ans += per + " ";
+							}
+							break;
+						}
+					}
+
+				}
+
+				if(vbdFlag ==0 && nnFlag ==0 && nnsFlag ==0){
+
+					for(String li:absLines){
+
+						int foundFlag = 0;
+						li = li.trim();
+						li = li.replace(" ", "+");
+						li.replace(",", "%2c");
+						li = li.replace("\"", "%22");
+
+						HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/entities?text="+li)
+								.header("X-Mashape-Key", "r2iAzEK2ilmshMy6isqkHL9j8UiJp1XMo3ojsn1IMggY2xD7DK")
+								.header("Accept", "application/json")
+								.asJson();
+						String result = "{ \"result\" : " + response.getBody().toString() + "}";
+						JSONObject resp = new JSONObject(result);
+						JSONArray arr = (JSONArray)resp.get("result");
+
+						int len = arr.length();
+						if(arr.length() == 0)
+							break;
+						for(int i=0; i<len; i++){
+
+							JSONObject tempObj = arr.getJSONObject(i);
+							//System.out.println(tempObj.toString());
+							if(tempObj.get("type").equals("PER")){
+
+								ans = (String) tempObj.get("entity");
+								foundFlag = 1;
+								break;
+
+							}
+						}
+
+						if(foundFlag == 1)
+							break;
+					}
+				}
+			}
+
+			if(whQuestion.toLowerCase().equals("how")){
+
+				System.out.println("Parsing abstract for how question");
+
+				for(String line:absLines){
+
+					if(! nnsList.isEmpty()){
+
+						for(Tree nns : nnsList){
+
+							String nounPlural = nns.toString().toLowerCase();
+							if(line.toLowerCase().contains(nounPlural)){
+
+								ans = getCount(line);
+								break;
+							}
+							else{
+
+								//gettimg lemma of nns, getting derivation of lemma and get number after it. 
+								Lemmatizer lemmaObject = new Lemmatizer();
+								List<String> lst = lemmaObject.lemmatize(nounPlural);
+								String lemma = lst.get(0);
+
+								HttpResponse<JsonNode> response_der = Unirest.get("https://wordsapiv1.p.mashape.com/words/"+lemma+"/derivation").header("X-Mashape-Key", "jbww4coyOHmshYmdYYBixq9DtwsYp1PgetcjsnmKRdjNTLbMQ8")
+										.header("Content-Type", "application/x-www-form-urlencoded")
+										.header("Accept", "application/json").asJson();
+
+								JSONObject obj_der = new JSONObject(response_der.getBody().toString());
+								JSONArray arr_der = (JSONArray)obj_der.get("derivation");
+
+
+								if(line.toLowerCase().contains(arr_der.get(0).toString())){
+
+									ans = getNextCount(line, arr_der.get(0).toString());
+									break;
+								}
+
+							}
+						}
+					}
+
+					if(! exList.isEmpty()){
+
+						if(line.toLowerCase().contains(exList.get(0).toString())){
+
+							ans = getNextCount(line, exList.get(0).toString());
+							break;
+						}
+					}
+
 				}
 			}
 		}
@@ -800,38 +1155,59 @@ public class POS_tagger {
 
 	}
 
-	
+
+	//when functions 
+
+	public String findFirstDate(String line){
+
+		System.out.println("Inside findFirstDate -----------");
+
+		String date = "";
+
+		String [] words = line.split(" ");
+
+		for(String  word : words){
+			System.out.println("word is: " + word);
+			if(StringUtils.matches(word, "[1-9][0-9][0-9][0-9][,.:;\"\']*") && word.length() > 3){
+				System.out.println("Date from Line:" + line);
+				date = word;
+				break;
+			}
+		}	
+		return date;
+	}
+
 
 	public String findDate(String line){
 
-		String date = null;
-		line= line.trim();
-		System.out.println(line);
-		line = line.replace(" ", "+");
-		line = line.replace(",", "%2C");
+		System.out.println("Inside findDate ------------");
+
+		String date = "";
+
+		String [] words = line.split(" ");
+
+
+		for(String word : words){
+			if(StringUtils.isNumeric(word) && word.length() > 2){
+				date = word;
+			}
+		}
 
 		return date;
 	}
 
-	public String getDate(String line){
-		String[] words = line.split(" ");
-		System.out.println("line"+  line);
-		System.out.println("words is "+ words.length);
-
-		for(String str : words){
-			System.out.println("string is :"+ str);
-			if(str.length() > 2 && StringUtils.isNumeric(str.substring(0, 1))){
-				return str;
-			}
-		}return null;
-	}
-	
 	public String getLocation(String line) throws UnirestException{
-		
+
+		System.out.println("Getting location");
+
+		line = line.trim();
 		line = line.replace(" ", "+");
 		line.replace(",", "%2c");
+		line = line.replace("\\\"", "%22");
+		line = line.replace(";", "%3B");
+
 		String ans = null;
-		
+
 		HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/locations?text=" + line)
 				.header("X-Mashape-Key", "19RiyMYdg0mshnjhf293boQnBnvqp1HKSiojsn3fF2JXZ5vcHK")
 				.header("Accept", "application/json")
@@ -841,241 +1217,135 @@ public class POS_tagger {
 		JSONArray arr = (JSONArray) resp.get("result");
 		resp = (JSONObject) arr.get(0);
 		ans = (String) resp.get("name");
-		
+
 		//ans = arr.get(0).toString();
 		System.out.println("location ans---" + ans);
-		
+
 		return ans;
 	}
-	
-	public String getPerson(String line) throws UnirestException{
-		
+
+
+
+	public List<String> getPersonList(String line) throws UnirestException{
+
+		System.out.println("Getting person list");
+
+		line = line.trim();
 		line = line.replace(" ", "+");
 		line = line.replace(",", "%2c");
-		String ans = null;
-		
-		HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/entities?text=This+text+contains+entities+such+as+the+singer+John+Hiatt+and+the+actor+Jim+Carry.")
+		line = line.replace("\\\"", "%22");
+		line = line.replace(";", "%3B");
+
+
+
+
+		HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/entities?text="+line)
 				.header("X-Mashape-Key", "r2iAzEK2ilmshMy6isqkHL9j8UiJp1XMo3ojsn1IMggY2xD7DK")
 				.header("Accept", "application/json")
 				.asJson();
-		
+
 		String result = "{ \"result\" : " + response.getBody().toString() + "}";
 		JSONObject resp = new JSONObject(result);
 		JSONArray arr = (JSONArray)resp.get("result");
-		
-		if(resp.get("type").equals("PER")){
-			ans = (String) resp.get("entity");
+		//JSONObject firstObj = arr.getJSONObject(0);
+
+
+		int iterator = 0;
+		int len = arr.length();
+		List<String> persons = new ArrayList<String>();
+		for(int i=0; i<len; i++){
+
+			JSONObject tempObj = arr.getJSONObject(i);
+			//System.out.println(tempObj.toString());
+			if(tempObj.get("type").equals("PER") || tempObj.get("type").equals("City")){
+
+				persons.add((String) tempObj.get("entity"));
+
+			}
+
 		}
-		
-		return ans;
+
+		return persons;
 	}
 
-	//	public String findFirstDate(String[] absLines){
+	public String getCount(String line){
+
+		System.out.println("Inside get count");
+
+		StringBuilder sb = new StringBuilder();
+		boolean foundFlag = false;
+
+		for(char c :line.toCharArray()){
+
+			if(Character.isDigit(c)){
+
+				sb.append(c);
+				foundFlag = true;
+			}
+			else if(foundFlag)
+				break;
+		}
+
+		System.out.println(sb.toString());
+		return sb.toString();
+	}
+
+	public String getNextCount(String line, String thatWord){
+
+		//System.out.println("Inside get next count");
+		String ans = "";
+		boolean foundWord = false;
+		//System.out.println(line);
+		String[] ansArray = line.split(" ");
+		//System.out.println("Derivation" + thatWord);
+
+		for(String word:ansArray){
+
+			if(word.toLowerCase().contains(thatWord.toLowerCase())){
+				//System.out.println("found the word -- " + word);
+				foundWord = true;
+			}
+
+			if(foundWord == true){
+				//System.out.println(word);
+				if(StringUtils.matches(word, "[0-9]*[,.:;\"\']*[0-9]*")){
+
+					ans = word;
+					break;
+				}
+			}
+
+		}
+
+		return ans;
+
+	}
+
+	//	public String getNextCountWord(String line, String thatWord){
 	//		
-	//		String date = null;
+	//		String ans = "";
+	//		boolean foundWord = false;
+	//		String[] ansArray = line.split(" ");
 	//		
-	//		for(String line:)
+	//		for(int i=0; i<ansArray.length; i++){
+	//			
+	//			if(ansArray[i].toLowerCase().contains(thatWord.toLowerCase())){
+	//				
+	//				foundWord = true;
+	//			}
+	//			if(foundWord == true){
+	//				
+	//				if(StringUtils.matches(ansArray[i], "[0-9]*[,.:;\"\']*[0-9]*")){
+	//					
+	//					ans += ansArray[i];
+	//					ans+= " " + ansArray[i+1];
+	//					break;
+	//				}
+	//			}
+	//		}
 	//		
-	//		return date;
-	//	}
-
-
-
-	//	public String getResultForQuestion(){
-	//
-	//		String whQuestion = parser.getWhList().get(0).toString();
-	//
-	//		String result= "";
-	//
-	//		if(whQuestion.equals("When")){
-	//
-	//			//System.out.println("Inside When");
-	//
-	//			result = getWhenResults();
-	//
-	//		}
-	//		return result;
-	//	}
-
-
-	//	public String getWhenResults(){
-	//
-	//		//String subject = "James Dean";
-	//
-	//		String sparql_query="";
-	//		String result;
-	//
-	//		if()
-	//		else
-	//		{
-	//			String ans = getResultFromAbstract();
-	//			if(ans.endsWith(",")){
-	//				ans = ans.substring(0, ans.length()-1);
-	//			}
-	//			return ans;
-	//		}
-	//
-	//		return getSpaqrlQueryResponse(sparql_query);
-	//	}
-
-	//	public String getSpaqrlQueryResponse(String sparql_query)
-	//	{
-	//		String stringQuery = "PREFIX dbo: <http://dbpedia.org/ontology/> " +
-	//				"PREFIX dbp: <http://dbpedia.org/property/>" +
-	//				"PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> " 
-	//				+"PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"+ sparql_query;
-	//
-	//		// System.out.println(stringQuery);
-	//
-	//		Query query = QueryFactory.create(stringQuery);
-	//		QueryExecution qexec = QueryExecutionFactory.sparqlService("http://dbpedia.org/sparql", query);
-	//
-	//		ResultSet results = qexec.execSelect();
-	//		QuerySolution soln = results.nextSolution();
-	//		Literal l = (Literal) soln.get("variable");
-	//		qexec.close() ;
-	//		return l.getString();
-	//	}
-
-	//	public String getResultFromAbstract(){
-	//		StringBuilder finalQuery = new StringBuilder();
-	//		String query1 = "SELECT ?variable WHERE {";
-	//		String query2 = " dbo:abstract ?variable ";
-	//		String filter = "FILTER(langMatches(lang(?variable),\"EN\"))}";
-	//
-	//		finalQuery.append(query1).append(url).append(query2).append(filter);
-	//		String query = finalQuery.toString();
-	//
-	//		String abs = getSpaqrlQueryResponse(query);
-	//		String[] abstractLines = abs.split("\\.\\s");
-	//
-	//		SentenceParser parser = new SentenceParser();
-	//		String date = null;
-	//
-	//		boolean found = false;
-	//		for(String s : abstractLines){
-	//			parser.setProcessedTree(s);
-	//			if(!parser.getVbnList().isEmpty()){
-	//				found = checkVerb(parser);
-	//				if(found){
-	//					//verbFound = true;
-	//					date = getDate(s);
-	//					if(date != null)
-	//						return date;
-	//					//System.out.println(date);
-	//				}	
-	//			}
-	//		}
-	//
-	//		for(String s : abstractLines){
-	//			parser = new SentenceParser();
-	//			parser.setProcessedTree(s);
-	//			if(!parser.getAdjList().isEmpty()){
-	//				found = checkAdjective(parser);
-	//				if(found){
-	//					date = getDate(s);
-	//					if(date != null)
-	//						return date;
-	//				}
-	//			}
-	//		}
-	//
-	//		for(String s : abstractLines){
-	//			parser = new SentenceParser();
-	//
-	//			parser.setProcessedTree(s);
-	//			if(!parser.getNnList().isEmpty()){
-	//				found = checkNoun(parser);
-	//				if(found){
-	//					date = getDate(s);
-	//					if(date != null)
-	//						return date;
-	//				}
-	//			}
-	//		}
-	//
-	//		if(date == null) {
-	//			for(String s : abstractLines){
-	//				date = getDate(s);
-	//				if(date != null)
-	//					return date;
-	//			}
-	//		}
-	//		return "";
-	//	}
-	//
-	//	public boolean checkVerb(SentenceParser parser){
-	//		List<Tree> vbnQues = getParser().getVbnList();
-	//		List<Tree> vbnAbstract = parser.getVbnList();
-	//		//List<Tree> nnsAbstract = parser.getNnsList();
-	//
-	//		boolean wordFound = false;
-	//		Tree t = null;
-	//
-	//		if (!vbnQues.isEmpty()){
-	//			t=vbnQues.get(0);
-	//
-	//			for(int i=0; i< vbnAbstract.size();i++)
-	//			{
-	//				if(vbnAbstract.get(i)!=null && t.toString().equals(vbnAbstract.get(i).toString()))
-	//				{	
-	//					wordFound = true;
-	//					break;
-	//					//List<Tree> npList = parser.getNpList();
-	//					//System.out.println(npList);
-	//				}
-	//			}	    	
-	//			//System.out.println("wordFound is : " + wordFound);
-	//			return wordFound;
-	//		}return false;
-	//	}
-	//
-	//
-	//	public boolean checkAdjective(SentenceParser parser){
-	//
-	//		boolean wordFound = false;
-	//		List<Tree> adjAbstract = parser.getAdjList();
-	//		Tree t = null;
-	//
-	//		if (!getParser().getAdjList().isEmpty()){
-	//			t=getParser().getAdjList().get(0);
-	//
-	//			for(int i=0; i<adjAbstract.size(); i++){
-	//				if(adjAbstract.get(i)!=null && t.toString().equals(adjAbstract.get(i).toString()))
-	//				{
-	//					wordFound = true;
-	//					break;
-	//					//List<Tree> npList = parser.getNpList();
-	//					//System.out.println(npList);
-	//				}
-	//			}
-	//
-	//			return wordFound;
-	//		}return false;
-	//	}
-	//
-	//
-	//	public boolean checkNoun(SentenceParser parser){
-	//
-	//		boolean wordFound = false;
-	//		Tree t = null;
-	//		List<Tree> nnAbstract = parser.getNnList();
-	//
-	//		if(!getParser().getNnList().isEmpty()){
-	//			t = getParser().getNnList().get(0);
-	//
-	//			for(int i=0; i<nnAbstract.size(); i++){
-	//				if(nnAbstract.get(i)!=null && t.toString().equals(nnAbstract.get(i).toString()))
-	//				{	
-	//					wordFound = true;
-	//					break;
-	//
-	//					//List<Tree> npList = parser.getNpList();
-	//					//System.out.println(npList);
-	//				}
-	//			}
-	//			return wordFound;
-	//		}return false;
+	//		return ans;
 	//	}
 
 }
+
