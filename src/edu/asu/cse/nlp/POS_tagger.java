@@ -95,6 +95,7 @@ public class POS_tagger {
 		StringBuffer buff = new StringBuffer();
 		System.out.println("Building URI from the subject ....");
 		String URI = setSubjectPageURI();
+		boolean abstractFlag = false;
 		String url = "<http://dbpedia.org/resource/" + URI + ">";
 
 		System.out.println("Getting question type from the classifier");
@@ -152,6 +153,7 @@ public class POS_tagger {
 				catch(Exception ex)
 				{
 					queryResult="The system cannot answer this now ! We are working on it :)";
+					ex.printStackTrace();
 
 				}
 			}
@@ -203,12 +205,15 @@ public class POS_tagger {
 					catch(Exception ex)
 					{
 						queryResult="The system cannot answer this now ! We are working on it :)";
+						ex.printStackTrace();
 
 					}
 				}
 				else{
 
 					System.out.println("Rank is 0 ... parsing abstract");
+					abstractFlag = true;
+
 					queryResult=parseAbstract(url, questionType);
 
 				}
@@ -217,6 +222,8 @@ public class POS_tagger {
 
 
 				System.out.println("No tags of the same category ... parsing abstract ... ");
+				abstractFlag = true;
+
 				queryResult=parseAbstract(url, questionType);
 
 			}
@@ -234,6 +241,8 @@ public class POS_tagger {
 			queryResult = splitted[0];
 
 		}
+		String abs = (abstractFlag == true) ? "Yes" : "No" ; 
+		result = result + ",\"abstract\" : " + "\"" + abs + "\"";
 		result = result + ",\"answer\" : \"" + queryResult + "\" }";
 		System.out.println("JSON result is : " +result);
 		JSONObject obj = new JSONObject(result);
@@ -757,6 +766,7 @@ public class POS_tagger {
 
 		if(!whList.isEmpty() && !vbnList.isEmpty() && whList.get(0).toString().toLowerCase().equals("where") && vbnList.get(0).toString().toLowerCase().equals("born")){
 			final_tag = "dbo:birthPlace";
+			result = result + "\"tags\": [{\"dbo:birthPlace\" : \"7\" }]";
 			//dbpedia_tags.put("dbo:birthPlace", value)
 			//System.out.println("here");
 		}
@@ -869,7 +879,8 @@ public class POS_tagger {
 		wpList = parser.getWpList();
 		exList = parser.getexList();
 
-		String ans = "";
+		String ans ="The system cannot answer this now ! We are working on it :)";
+;
 
 		System.out.println("wh Questions .. ");
 		System.out.println(whList);
@@ -1026,8 +1037,6 @@ public class POS_tagger {
 					}
 
 					if(! nnList.isEmpty()){
-
-						System.out.println("who with nn list");
 
 						if(line.contains(nnList.get(0).toString())){
 

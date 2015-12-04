@@ -27,6 +27,9 @@
     Matching Classifiers With Tags : 
     <span id = "Tags"></span>
     <br>
+    Parsed from Abstract: 
+    <span id = "abstract"></span>
+    <br>
     <br>
     Answer :
     <span id="answer"></span>
@@ -79,7 +82,12 @@
           alert("Please select a question");
           return false;
         }
-        
+        $('#answer').text("");
+        $('#CoarseType').text("");
+        $('#FineType').text("");
+        $('#abstract').text("");
+        $('#Tags').text("");
+
         
         
         $.ajax({
@@ -92,6 +100,7 @@
             $('#answer').text(data["answer"]);
             $('#CoarseType').text(data["CoarseType"]);
             $('#FineType').text(data["FineType"]);
+            $('#abstract').text(data["abstract"]);
             var tags = data["tags"];
             console.log(tags);
             // var splitted = tags.split(",");
