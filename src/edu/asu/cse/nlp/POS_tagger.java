@@ -222,6 +222,7 @@ public class POS_tagger {
 
 
 				System.out.println("No tags of the same category ... parsing abstract ... ");
+				result += "\"tags\": [{}]";
 				abstractFlag = true;
 
 				queryResult=parseAbstract(url, questionType);
@@ -241,6 +242,7 @@ public class POS_tagger {
 			queryResult = splitted[0];
 
 		}
+		
 		String abs = (abstractFlag == true) ? "Yes" : "No" ; 
 		result = result + ",\"abstract\" : " + "\"" + abs + "\"";
 		result = result + ",\"answer\" : \"" + queryResult + "\" }";
@@ -249,7 +251,6 @@ public class POS_tagger {
 
 		return obj.toString();
 	}
-
 	public String setSubjectPageURI()
 	{
 		//System.out.println("this is here");
@@ -993,20 +994,28 @@ public class POS_tagger {
 
 						li = li.replace(" ", "+");
 						li = li.replace(",", "%2c");
-						HttpResponse<JsonNode> response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/locations?text=" + li)
+						HttpResponse<JsonNode> response = null;
+						try{
+							response = Unirest.get("https://webknox-text-processing.p.mashape.com/text/locations?text=" + li)
 								.header("X-Mashape-Key", "19RiyMYdg0mshnjhf293boQnBnvqp1HKSiojsn3fF2JXZ5vcHK")
 								.header("Accept", "application/json")
 								.asJson();
+							if(response.getBody().toString().length() > 2){
 
-						if(response.getBody().toString().length() > 2){
-
-							String result = "{ \"result\" : " + response.getBody().toString() + "}";
-							JSONObject resp = new JSONObject(result);
-							JSONArray arr = (JSONArray) resp.get("result");
-							resp = (JSONObject) arr.get(0);
-							ans = (String) resp.get("name");
-							return ans;
+								String result = "{ \"result\" : " + response.getBody().toString() + "}";
+								JSONObject resp = new JSONObject(result);
+								JSONArray arr = (JSONArray) resp.get("result");
+								resp = (JSONObject) arr.get(0);
+								ans = (String) resp.get("name");
+								return ans;
+							}
 						}
+						catch(Exception ex)
+						{
+							ex.printStackTrace();
+						}
+
+					
 					}
 				}
 
