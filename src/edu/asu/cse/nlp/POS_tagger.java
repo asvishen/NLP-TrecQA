@@ -1037,6 +1037,7 @@ public class POS_tagger {
 
 							vbdFlag = 1;
 							List<String> persons = getPersonList(line);
+							ans="";
 							for(String per: persons){
 
 								ans += per + " ";
@@ -1051,6 +1052,8 @@ public class POS_tagger {
 
 							nnFlag = 1;
 							List<String> persons = getPersonList(line);
+							ans="";
+
 							for(String per: persons){
 
 								ans += per + " ";
@@ -1062,6 +1065,7 @@ public class POS_tagger {
 					if(! nnsList.isEmpty()){
 
 						if(line.contains(nnsList.get(0).toString())){
+							ans="";
 
 							nnsFlag = 1;
 							List<String> persons = getPersonList(line);
