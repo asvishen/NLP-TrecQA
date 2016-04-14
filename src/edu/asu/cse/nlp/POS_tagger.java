@@ -157,12 +157,6 @@ public class POS_tagger {
 
 				}
 			}
-			//			else{
-			//
-			//				System.out.println("Rank is 0 ... parsing abstract");
-			//				queryResult=parseWhatAbstract(url, questionType);
-			//
-			//			}
 			
 		}
 		else
@@ -170,10 +164,6 @@ public class POS_tagger {
 			//classifying the tags
 			System.out.println("classifying the tags");
 			HashMap<String, Integer> finalClassifiedTags = classifyTags(dbpedia_tags, qt[0]);
-			//System.out.println(finalClassifiedTags.size());
-
-			
-
 			if(! finalClassifiedTags.isEmpty()){
 
 				System.out.println("Ranking the tags ....");
@@ -197,7 +187,6 @@ public class POS_tagger {
 						}
 						else{
 
-							//System.out.println("here");
 							String[] ch = queryResult.split("\\^");
 							queryResult = ch[0];
 						}
@@ -224,13 +213,9 @@ public class POS_tagger {
 				System.out.println("No tags of the same category ... parsing abstract ... ");
 				result += "\"tags\": [{}]";
 				abstractFlag = true;
-
 				queryResult=parseAbstract(url, questionType);
 
 			}
-
-
-			
 		}
 		if(queryResult.contains("_"))
 		{
@@ -253,9 +238,7 @@ public class POS_tagger {
 	}
 	public String setSubjectPageURI()
 	{
-		//System.out.println("this is here");
 		String URI;
-
 		if(URI_map.containsKey(subject)){
 
 			URI = URI_map.get(subject);
@@ -279,12 +262,8 @@ public class POS_tagger {
 		HashSet<String> tags = new HashSet<String>();
 
 		for(String s : jsonArray){
-			//System.out.println(s);
 			tags.add(s);
 		}
-
-		// System.out.println("reached here");
-
 		return tags;
 
 	}
@@ -294,7 +273,6 @@ public class POS_tagger {
 		try {
 			BufferedReader rd = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
 			String jsonText = readAll(rd);
-			//System.out.println(jsonText);
 			JSONObject json = new JSONObject(jsonText);
 			return json;
 		} finally {
@@ -320,8 +298,6 @@ public class POS_tagger {
 			if(tag.contains("ontology")){
 
 				String dbo_tag = tag.substring(28);
-				//System.out.println(dbo_tag);
-
 				dbo_tag = "dbo:" + dbo_tag;
 				dbpedia_tags.put(dbo_tag, 0);
 			}
@@ -329,8 +305,6 @@ public class POS_tagger {
 			else if(tag.contains("property")){
 
 				String dbp_tag = tag.substring(28);
-				//System.out.println(dbp_tag);
-
 				dbp_tag = "dbp:" + dbp_tag;
 				dbpedia_tags.put(dbp_tag, 0);
 			}
@@ -383,22 +357,6 @@ public class POS_tagger {
 		System.out.println("final classified tags : \n" + finalClassifiedTags.size());
 		return finalClassifiedTags;
 	}
-
-	//	public String rankWhatTags(HashMap<String, Integer> tagMap, String question){
-	//		
-	//		String final_tag = null;
-	//		System.out.println("Inside rank what tags");
-	//		System.out.println("Question is -- " + question);
-	//		
-	//		HashMap<String, String> mapDict = new HashMap<String, String>();
-	//		mapDict.put("ethnic", "enthnicmakeup");
-	//		mapDict.put("group", "band");
-	//		mapDict.put("stand", "formername");
-	//		
-	//		return final_tag;
-	//	}
-
-
 
 	public String rankTags(HashMap<String, Integer> dbpedia_tags, String question) throws UnirestException{
 
@@ -534,7 +492,6 @@ public class POS_tagger {
 				HttpResponse<JsonNode> response = Unirest.get("https://wordsapiv1.p.mashape.com/words/"+lem+"/synonyms").header("X-Mashape-Key", "jbww4coyOHmshYmdYYBixq9DtwsYp1PgetcjsnmKRdjNTLbMQ8")
 						.header("Content-Type", "application/x-www-form-urlencoded")
 						.header("Accept", "application/json").asJson();
-				//System.out.println(response.getBody());
 
 				JSONObject obj = new JSONObject(response.getBody().toString());
 				JSONArray arr = (JSONArray)obj.get("synonyms");
@@ -549,7 +506,6 @@ public class POS_tagger {
 						.header("Accept", "application/json").asJson();
 
 				JSONObject obj_der = new JSONObject(response_der.getBody().toString());
-				//System.out.println(response_der.getBody());
 				JSONArray arr_der = (JSONArray)obj_der.get("derivation");
 
 				for(int i=0; i<arr_der.length(); i++)
@@ -574,7 +530,6 @@ public class POS_tagger {
 		if(! wdtList.isEmpty())
 			whQuestion = wdtList.get(0).toString().toLowerCase();
 
-		//System.out.println(related_terms);
 
 		if(whQuestion.equals("what")){
 
@@ -592,36 +547,22 @@ public class POS_tagger {
 
 
 		for(String tag :dbpedia_tags.keySet()){
-
-			//checking wh word
 			System.out.println("Ranking tags ... ");
 
 			if(! whList.isEmpty() || !wpList.isEmpty() || ! wdtList.isEmpty()){
-
-
-
-				//when 
-
 				if(whQuestion.equals("when")){
-
-
 					System.out.println("when question dictionary");
 
 					if(flag == 1)
 						related_terms.remove("cause");
-
-
 					for(String word : whenDict){
 
 						if(tag.toLowerCase().contains(word.toLowerCase())){
 
 							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*2);
-							//System.out.println(dbpedia_tags.get(tag)+ "------");
 						}
 					}
 				}
-
-				//where
 
 				if(whQuestion.equals("where")){
 
@@ -633,7 +574,6 @@ public class POS_tagger {
 						if(tag.toLowerCase().contains(word.toLowerCase())){
 
 							dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*2);
-							//System.out.println(dbpedia_tags.get(tag)+ "------");
 						}
 					}
 				}
@@ -656,8 +596,6 @@ public class POS_tagger {
 
 
 			}
-
-			//rank acc to vbn list
 			System.out.println("rank acc to vbn list");
 			if(! vbnList.isEmpty()){
 
@@ -669,7 +607,6 @@ public class POS_tagger {
 
 
 						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*5);
-						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
@@ -687,12 +624,10 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(v.toLowerCase())){
 
 						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*5);
-						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
 
-			//rank acc to NN
 			System.out.println("rank acc to nn list");
 
 
@@ -705,7 +640,6 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(n.toLowerCase())){
 
 						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*4);
-						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 			}
@@ -738,7 +672,6 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(lem.toLowerCase())){
 
 						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1*3);
-						//System.out.println(dbpedia_tags.get(tag)+ "------");
 					}
 				}
 
@@ -753,7 +686,6 @@ public class POS_tagger {
 					if(tag.toLowerCase().contains(s.toLowerCase())){
 
 						dbpedia_tags.put(tag, dbpedia_tags.get(tag)+1);
-						//System.out.println(dbpedia_tags.get(tag)+ "------");
 
 					}
 				}
@@ -769,7 +701,6 @@ public class POS_tagger {
 			final_tag = "dbo:birthPlace";
 			result = result + "\"tags\": [{\"dbo:birthPlace\" : \"7\" }]";
 			//dbpedia_tags.put("dbo:birthPlace", value)
-			//System.out.println("here");
 		}
 
 		else{
@@ -796,7 +727,6 @@ public class POS_tagger {
 			result = result+tags;
 		}
 
-		//System.out.println("RANK " + dbpedia_tags.get(final_tag));
 		return final_tag;
 	}
 
@@ -818,8 +748,6 @@ public class POS_tagger {
 		QuerySolution soln = results.nextSolution();
 
 		RDFNode l = soln.get("variable");
-		//		Literal l = (Literal) soln.get("variable");
-		//		System.out.println(l);
 		qexec.close() ;
 		return l.toString();
 
@@ -834,20 +762,15 @@ public class POS_tagger {
 				"PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> " 
 				+"PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"+ sparql_query;
 
-		//System.out.println(stringQuery);
-
 		Query query = QueryFactory.create(stringQuery);
 		QueryExecution qexec = QueryExecutionFactory.sparqlService("http://dbpedia.org/sparql", query);
 
 		ResultSet results = qexec.execSelect();
 		QuerySolution soln = results.nextSolution();
 
-		//RDFNode l = soln.get("variable");
 		Literal l = (Literal) soln.get("variable");
-		//		System.out.println(l);
 		qexec.close() ;
 		String abs = l.toString();
-		//System.out.println("ABSTRACT == " + abs);
 		System.out.println("retrieving abstract");
 
 
@@ -907,12 +830,7 @@ public class POS_tagger {
 
 				for(String line : absLines){
 
-					// System.out.println("Line is :" + line);
-
-
 					if(! vbnList.isEmpty()){
-
-						// System.out.println(vbnList.get(0));
 
 						if(line.contains(vbnList.get(0).toString())){
 
@@ -942,7 +860,6 @@ public class POS_tagger {
 						}
 					}
 					else{
-						// System.out.println("Finding first date *************");
 
 						ans = findFirstDate(line);
 						if(! StringUtils.matches(ans, "[1-9][0-9][0-9][0-9][,.:;\"\']*") && ans.length() < 3){
@@ -1103,7 +1020,6 @@ public class POS_tagger {
 						for(int i=0; i<len; i++){
 
 							JSONObject tempObj = arr.getJSONObject(i);
-							//System.out.println(tempObj.toString());
 							if(tempObj.get("type").equals("PER")){
 
 								ans = (String) tempObj.get("entity");
@@ -1239,8 +1155,6 @@ public class POS_tagger {
 		JSONArray arr = (JSONArray) resp.get("result");
 		resp = (JSONObject) arr.get(0);
 		ans = (String) resp.get("name");
-
-		//ans = arr.get(0).toString();
 		System.out.println("location ans---" + ans);
 
 		return ans;
@@ -1269,8 +1183,6 @@ public class POS_tagger {
 		String result = "{ \"result\" : " + response.getBody().toString() + "}";
 		JSONObject resp = new JSONObject(result);
 		JSONArray arr = (JSONArray)resp.get("result");
-		//JSONObject firstObj = arr.getJSONObject(0);
-
 
 		int iterator = 0;
 		int len = arr.length();
@@ -1314,22 +1226,17 @@ public class POS_tagger {
 
 	public String getNextCount(String line, String thatWord){
 
-		//System.out.println("Inside get next count");
 		String ans = "";
 		boolean foundWord = false;
-		//System.out.println(line);
 		String[] ansArray = line.split(" ");
-		//System.out.println("Derivation" + thatWord);
 
 		for(String word:ansArray){
 
 			if(word.toLowerCase().contains(thatWord.toLowerCase())){
-				//System.out.println("found the word -- " + word);
 				foundWord = true;
 			}
 
 			if(foundWord == true){
-				//System.out.println(word);
 				if(StringUtils.matches(word, "[0-9]*[,.:;\"\']*[0-9]*")){
 
 					ans = word;
@@ -1342,32 +1249,6 @@ public class POS_tagger {
 		return ans;
 
 	}
-
-	//	public String getNextCountWord(String line, String thatWord){
-	//		
-	//		String ans = "";
-	//		boolean foundWord = false;
-	//		String[] ansArray = line.split(" ");
-	//		
-	//		for(int i=0; i<ansArray.length; i++){
-	//			
-	//			if(ansArray[i].toLowerCase().contains(thatWord.toLowerCase())){
-	//				
-	//				foundWord = true;
-	//			}
-	//			if(foundWord == true){
-	//				
-	//				if(StringUtils.matches(ansArray[i], "[0-9]*[,.:;\"\']*[0-9]*")){
-	//					
-	//					ans += ansArray[i];
-	//					ans+= " " + ansArray[i+1];
-	//					break;
-	//				}
-	//			}
-	//		}
-	//		
-	//		return ans;
-	//	}
 
 }
 

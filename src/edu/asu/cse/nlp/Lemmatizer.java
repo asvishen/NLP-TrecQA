@@ -17,25 +17,16 @@ public class Lemmatizer {
 	protected StanfordCoreNLP pipeline;
 
 	public Lemmatizer() {
-		// Create StanfordCoreNLP object properties, with POS tagging
-		// (required for lemmatization), and lemmatization
 		Properties props;
 		props = new Properties();
 		props.put("annotators", "tokenize, ssplit, pos, lemma");
-
-		// StanfordCoreNLP loads a lot of models, so you probably
-		// only want to do this once per execution
 		this.pipeline = new StanfordCoreNLP(props);
 	}
 
 	public List<String> lemmatize(String documentText)
 	{
 		List<String> lemmas = new LinkedList<String>();
-
-		// create an empty Annotation just with the given text
 		Annotation document = new Annotation(documentText);
-
-		// run all Annotators on this text
 		this.pipeline.annotate(document);
 
 		// Iterate over all of the sentences found

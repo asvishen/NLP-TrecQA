@@ -150,10 +150,6 @@ public class SentenceParser {
           }
           
         }
-//          System.out.println(verbList);
-//          System.out.println(nounList);
-//          System.out.println(whList);
-//          System.out.println(nounPhrase);
     }
     
    

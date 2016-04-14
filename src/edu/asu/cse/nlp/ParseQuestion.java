@@ -23,50 +23,27 @@ public class ParseQuestion extends HttpServlet {
      * Default constructor. 
      */
     public ParseQuestion() {
-        // TODO Auto-generated constructor stub
     }
 
 	/**
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		// TODO Auto-generated method stub
-		
-		//System.out.println("Here");
-		
+
 		String question = request.getParameter("question");
 		String subject = request.getParameter("subject");
-		
-		
-		
-		//System.out.println("dasdasdadas " + subject);
-		//System.out.println("ddsdadasdadas"+ question);
-		//String type = request.getParameter("type");
-		
 		POS_tagger tagger = new POS_tagger(subject,question);
 		String res = null;
 		try {
 			res = tagger.getResult();
 		} catch (JSONException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (UnirestException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		System.out.println("exepcted" +res);
-		//process these inputs
 		response.getWriter().write(res);
 	}
-
-	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
-	 */
-	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		// TODO Auto-generated method stub
-	}
-
 }
